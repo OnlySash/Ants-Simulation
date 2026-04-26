@@ -1,4 +1,4 @@
-#include "environment.h"
+#include "../include/environment.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,6 +69,27 @@ void environment_show(environment_t *env) {
       printf("%c%c", env->terrain[i][j], j < env->size - 1 ? ' ' : '\n');
     }
   }
+}
+
+int find_free_tile(environment_t *env, int pos[2]){
+  // Busca espacio vacìo para colocar hormiga
+  if (!env || !env->terrain) return 0;
+
+  int attempts = 0;
+  int max_attempts = env->size * env->size;
+
+  do {
+    pos[0] = rand() % env->size;
+    pos[1] = rand() % env->size;
+    attempts++;
+
+    if (env->terrain[pos[0]][pos[1]] == FLOOR) {
+      return 1; // encontrado
+    }
+
+  } while (attempts < max_attempts);
+
+  return 0;
 }
 
 // Destroy the environment

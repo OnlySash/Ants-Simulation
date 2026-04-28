@@ -1,0 +1,4 @@
+./bin/ants 4 30 3 5 mutex
+./bin/ants 4 30 3 5 nomutex
+./bin/ants_mutex 4 30 3 5
+./bin/ants_nomutex 4 30 3 5

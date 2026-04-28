@@ -4,26 +4,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-static void simulation_assign_food_to_leaves(
-    simulation_t *simulation,
-    int food_per_leaf
-) {
-    simulation->total_food = 0;
-
-    for (int i = 0; i < simulation->tree->node_count; i++) {
-        node_t *node = simulation->tree->nodes[i];
-
-        if (node_is_leaf(node)) {
-            node->food = food_per_leaf;
-            simulation->total_food += food_per_leaf;
-        } else {
-            node->food = 0;
-        }
-    }
-
-    simulation->tree->initial_food = simulation->total_food;
-}
-
 simulation_t *simulation_create(
     int ant_count,
     int node_count,
@@ -37,7 +17,7 @@ simulation_t *simulation_create(
     simulation_t *simulation = malloc(sizeof(simulation_t));
     if (!simulation) return NULL;
 
-    simulation->tree = tree_create_random(node_count, max_children);
+    simulation->tree = tree_create_random(node_count, max_children, food_per_leaf);
     if (!simulation->tree) {
         free(simulation);
         return NULL;
@@ -51,17 +31,18 @@ simulation_t *simulation_create(
     }
 
     simulation->ant_count = ant_count;
-    simulation->total_food = 0;
+    simulation->total_food = simulation->tree->initial_food;
 
     unsigned int base_seed = (unsigned int)time(NULL);
 
     for (int i = 0; i < ant_count; i++) {
-        simulation->ants[i].id = i;
-        simulation->ants[i].collected_food = 0;
-        simulation->ants[i].seed = base_seed + (i * 97);
+        ant_init(
+            &simulation->ants[i],
+            i,
+            base_seed + (i * 97),
+            simulation
+        );
     }
-
-    simulation_assign_food_to_leaves(simulation, food_per_leaf);
 
     return simulation;
 }
@@ -75,29 +56,14 @@ int simulation_run(simulation_t *simulation) {
                 break;
             }
 
-            ant_t *ant = &simulation->ants[i];
-            node_t *leaf = tree_walk_random_leaf(
-                simulation->tree,
-                &ant->seed
-            );
-
-            if (leaf && leaf->food > 0) {
-                leaf->food--;
-                ant->collected_food++;
-                simulation_decrease_total_food(simulation);
-
-                printf("Hormiga %d comio en hoja %d. Comida restante: %d\n",
-                       ant->id,
-                       leaf->id,
-                       simulation->total_food);
-            }
+            ant_step(&simulation->ants[i]);
         }
     }
 
     return simulation_get_collected_food(simulation);
 }
 
-int simulation_get_total_food(simulation_t *simulation) {
+int simulation_get_total_food(const simulation_t *simulation) {
     if (!simulation) return 0;
     return simulation->total_food;
 }
@@ -125,12 +91,22 @@ int simulation_get_collected_food(const simulation_t *simulation) {
 void simulation_print_results(const simulation_t *simulation) {
     if (!simulation) return;
 
+    int collected = simulation_get_collected_food(simulation);
+
     printf("\nResultados de la simulacion:\n");
     printf("Hormigas: %d\n", simulation->ant_count);
+    printf("Nodos: %d\n", simulation->tree->node_count);
+    printf("Hojas: %d\n", simulation->tree->leaf_count);
+    printf("Comida por hoja: %d\n", simulation->tree->food_per_leaf);
     printf("Comida inicial: %d\n", simulation->tree->initial_food);
     printf("Comida restante: %d\n", simulation->total_food);
-    printf("Comida recolectada: %d\n",
-           simulation_get_collected_food(simulation));
+    printf("Comida recolectada: %d\n", collected);
+
+    if (collected + simulation->total_food == simulation->tree->initial_food) {
+        printf("Verificacion: OK\n");
+    } else {
+        printf("Verificacion: ERROR\n");
+    }
 
     printf("\nComida por hormiga:\n");
 

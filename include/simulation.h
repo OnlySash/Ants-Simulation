@@ -20,7 +20,7 @@ simulation_t *simulation_create(
 );
 
 int simulation_run(simulation_t *simulation);
-int simulation_get_total_food(simulation_t *simulation);
+int simulation_get_total_food(const simulation_t *simulation);
 void simulation_decrease_total_food(simulation_t *simulation);
 int simulation_get_collected_food(const simulation_t *simulation);
 void simulation_print_results(const simulation_t *simulation);

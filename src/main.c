@@ -1,24 +1,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "../include/cli.h"
 #include "../include/simulation.h"
+#include "../include/timer.h"
 
 int main(int argc, char *argv[]) {
-    int ant_count = 5;
-    int node_count = 20;
-    int max_children = 3;
-    int food_per_leaf = 4;
+    cli_options_t options;
 
-    if (argc >= 2) ant_count = atoi(argv[1]);
-    if (argc >= 3) node_count = atoi(argv[2]);
-    if (argc >= 4) max_children = atoi(argv[3]);
-    if (argc >= 5) food_per_leaf = atoi(argv[4]);
+    if (!cli_parse_args(argc, argv, &options)) {
+        return EXIT_FAILURE;
+    }
 
     simulation_t *simulation = simulation_create(
-        ant_count,
-        node_count,
-        max_children,
-        food_per_leaf
+        options.ant_count,
+        options.node_count,
+        options.max_children,
+        options.food_per_leaf
     );
 
     if (!simulation) {
@@ -28,8 +26,16 @@ int main(int argc, char *argv[]) {
 
     tree_print_summary(simulation->tree);
 
+    timer_t timer;
+
+    timer_start(&timer);
     simulation_run(simulation);
+    timer_stop(&timer);
+
     simulation_print_results(simulation);
+
+    printf("\nTiempo de ejecucion: %.6f segundos\n",
+           timer_elapsed_seconds(&timer));
 
     simulation_destroy(simulation);
 

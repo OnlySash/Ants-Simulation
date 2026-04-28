@@ -1,10 +1,13 @@
-#include "tree.h"
+#include "../include/tree.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
-tree_t *tree_create_random(int node_count, int max_children) {
-    if (node_count <= 0 || max_children <= 0) return NULL;
+tree_t *tree_create_random(int node_count, int max_children, int food_per_leaf) {
+    if (node_count <= 0 || max_children <= 0 || food_per_leaf < 0) {
+        return NULL;
+    }
 
     tree_t *tree = malloc(sizeof(tree_t));
     if (!tree) return NULL;
@@ -16,15 +19,19 @@ tree_t *tree_create_random(int node_count, int max_children) {
     }
 
     tree->node_count = node_count;
+    tree->leaf_count = 0;
     tree->initial_food = 0;
+    tree->food_per_leaf = food_per_leaf;
     tree->max_children = max_children;
 
     for (int i = 0; i < node_count; i++) {
         tree->nodes[i] = node_create(i, max_children);
+
         if (!tree->nodes[i]) {
             for (int j = 0; j < i; j++) {
                 node_destroy(tree->nodes[j]);
             }
+
             free(tree->nodes);
             free(tree);
             return NULL;
@@ -46,23 +53,25 @@ tree_t *tree_create_random(int node_count, int max_children) {
         node_add_child(parent, tree->nodes[i]);
     }
 
-    tree_assign_food_to_leaves(tree);
+    tree_assign_food_to_leaves(tree, food_per_leaf);
 
     return tree;
 }
 
-void tree_assign_food_to_leaves(tree_t *tree) {
+void tree_assign_food_to_leaves(tree_t *tree, int food_per_leaf) {
     if (!tree) return;
 
-    unsigned int seed = (unsigned int)time(NULL);
     tree->initial_food = 0;
+    tree->leaf_count = 0;
+    tree->food_per_leaf = food_per_leaf;
 
     for (int i = 0; i < tree->node_count; i++) {
         node_t *node = tree->nodes[i];
 
         if (node_is_leaf(node)) {
-            node->food = 1 + (rand_r(&seed) % 10);
-            tree->initial_food += node->food;
+            node->food = food_per_leaf;
+            tree->initial_food += food_per_leaf;
+            tree->leaf_count++;
         } else {
             node->food = 0;
         }
@@ -99,22 +108,19 @@ void tree_destroy(tree_t *tree) {
 void tree_print_summary(const tree_t *tree) {
     if (!tree) return;
 
-    int leaf_count = 0;
-    int total_food = 0;
+    int current_food = 0;
 
     for (int i = 0; i < tree->node_count; i++) {
-        node_t *node = tree->nodes[i];
-
-        if (node_is_leaf(node)) {
-            leaf_count++;
-            total_food += node->food;
+        if (node_is_leaf(tree->nodes[i])) {
+            current_food += tree->nodes[i]->food;
         }
     }
 
     printf("Tree summary:\n");
     printf("Nodes: %d\n", tree->node_count);
-    printf("Leaves: %d\n", leaf_count);
+    printf("Leaves: %d\n", tree->leaf_count);
     printf("Max children per node: %d\n", tree->max_children);
+    printf("Food per leaf: %d\n", tree->food_per_leaf);
     printf("Initial food: %d\n", tree->initial_food);
-    printf("Current food: %d\n", total_food);
+    printf("Current food: %d\n", current_food);
 }

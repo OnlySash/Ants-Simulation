@@ -9,6 +9,7 @@ typedef struct node {
     int child_count;
     int child_capacity;
     struct node **children;
+    pthread_mutex_t mutex;
 } node_t;
 
 node_t *node_create(int id, int child_capacity);

@@ -6,12 +6,11 @@
 typedef struct tree {
     node_t *root;
     node_t **nodes;
-
     int node_count;
     int leaf_count;
     int initial_food;
-    int food_per_leaf;
     int max_children;
+    int food_per_leaf;
 } tree_t;
 
 tree_t *tree_create_random(int node_count, int max_children, int food_per_leaf);

@@ -1,42 +1,31 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -D_POSIX_C_SOURCE=199309L -Iinclude
-LDFLAGS = -pthread
+CFLAGS = -std=c11 -Wall -Wextra -Werror -pthread -Iinclude
+BIN_DIR = bin
+BUILD_DIR = build
+TARGETS = $(BIN_DIR)/ants
+COMMON_OBJS = \
+	$(BUILD_DIR)/cli.o \
+	$(BUILD_DIR)/node.o \
+	$(BUILD_DIR)/tree.o \
+	$(BUILD_DIR)/ant.o \
+	$(BUILD_DIR)/simulation.o \
+	$(BUILD_DIR)/timer.o
 
-TARGET = ants
+.PHONY: all clean
 
-SRCS = src/main.c src/node.c src/tree.c src/ant.c src/simulation.c src/cli.c src/timer.c
-OBJS = $(SRCS:.c=.o)
+all: $(TARGETS)
 
-all: $(TARGET)
+$(BIN_DIR):
+	mkdir -p $(BIN_DIR)
 
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET) $(LDFLAGS)
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
-src/main.o: src/main.c include/cli.h include/simulation.h include/timer.h
-	$(CC) $(CFLAGS) -c src/main.c -o src/main.o
+$(BIN_DIR)/ants: $(BUILD_DIR)/main.o $(COMMON_OBJS) | $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $(BUILD_DIR)/main.o $(COMMON_OBJS)
 
-src/node.o: src/node.c include/node.h
-	$(CC) $(CFLAGS) -c src/node.c -o src/node.o
-
-src/tree.o: src/tree.c include/tree.h include/node.h
-	$(CC) $(CFLAGS) -c src/tree.c -o src/tree.o
-
-src/ant.o: src/ant.c include/ant.h include/simulation.h include/tree.h include/node.h
-	$(CC) $(CFLAGS) -c src/ant.c -o src/ant.o
-
-src/simulation.o: src/simulation.c include/simulation.h include/ant.h include/tree.h include/node.h
-	$(CC) $(CFLAGS) -c src/simulation.c -o src/simulation.o
-
-src/cli.o: src/cli.c include/cli.h
-	$(CC) $(CFLAGS) -c src/cli.c -o src/cli.o
-
-src/timer.o: src/timer.c include/timer.h
-	$(CC) $(CFLAGS) -c src/timer.c -o src/timer.o
+$(BUILD_DIR)/%.o: src/%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET)
-
-run: $(TARGET)
-	./$(TARGET)
-
-.PHONY: all clean run
+	rm -rf $(BIN_DIR) $(BUILD_DIR) src/*.o ants src/main

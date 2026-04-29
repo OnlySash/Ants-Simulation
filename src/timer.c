@@ -1,22 +1,23 @@
 #include "../include/timer.h"
+#include <stdio.h>
 
-void timer_start(timer_t *timer) {
-    if (!timer) return;
-
-    clock_gettime(CLOCK_MONOTONIC, &timer->start);
+void timer_start(sim_timer_t *timer) {
+    if (timer) {
+        gettimeofday(&timer->start, NULL);
+    }
 }
 
-void timer_stop(timer_t *timer) {
-    if (!timer) return;
-
-    clock_gettime(CLOCK_MONOTONIC, &timer->end);
+void timer_stop(sim_timer_t *timer) {
+    if (timer) {
+        gettimeofday(&timer->end, NULL);
+    }
 }
 
-double timer_elapsed_seconds(const timer_t *timer) {
+double timer_elapsed_seconds(const sim_timer_t *timer) {
     if (!timer) return 0.0;
 
-    double seconds = (double)(timer->end.tv_sec - timer->start.tv_sec);
-    double nanoseconds = (double)(timer->end.tv_nsec - timer->start.tv_nsec) / 1000000000.0;
+    long seconds = timer->end.tv_sec - timer->start.tv_sec;
+    long microseconds = timer->end.tv_usec - timer->start.tv_usec;
 
-    return seconds + nanoseconds;
+    return (double)seconds + (double)microseconds / 1000000.0;
 }

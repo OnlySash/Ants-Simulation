@@ -1,4 +1,0 @@
-./bin/ants 64 5000 3 20 mutex
-./bin/ants 64 5000 3 20 nomutex
-./bin/ants_mutex 64 5000 3 20
-./bin/ants_nomutex 64 5000 3 20

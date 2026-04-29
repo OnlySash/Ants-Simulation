@@ -1,6 +1,8 @@
 #ifndef ANT_H
 #define ANT_H
 
+#include "node.h"
+
 struct simulation;
 
 typedef struct ant {
@@ -10,7 +12,10 @@ typedef struct ant {
     struct simulation *simulation;
 } ant_t;
 
-void ant_init(ant_t *ant, int id, unsigned int seed, struct simulation *simulation);
-int ant_step(ant_t *ant);
+// Funcion que ejecuta el hilo de una hormiga.
+void *ant_run(void *arg);
+
+// Intenta recolectar comida de una hoja protegida con mutex.
+int ant_try_collect(ant_t *ant, node_t *leaf);
 
 #endif

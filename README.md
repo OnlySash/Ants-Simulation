@@ -44,3 +44,28 @@ El sistema modela el comportamiento de múltiples hormigas que recorren el árbo
 ## Implementacion de Paralelizacion
 
 El paralelismo se implementará asignando cada hormiga a un hilo independiente, permitiendo que múltiples recorridos del árbol ocurran simultáneamente. Cada hilo ejecutará la lógica de desplazamiento desde la raíz hasta una hoja y el consumo de comida, mientras que el acceso a recursos compartidos osea la comida en los nodos hoja y el contador global, será controlado mediante mecanismos de sincronización (por ejemplo, mutex) para evitar condiciones de carrera. De esta forma, se busca mejorar el rendimiento de la simulación y modelar un comportamiento concurrente más cercano al de una colonia real de hormigas
+
+
+## Compilar
+
+```sh
+make
+```
+
+## Ejecutar
+
+```sh
+./bin/ants <cantidad_hormigas> <cantidad_nodos> <max_hijos> <comida_por_hoja>
+```
+
+Ejemplo:
+
+```sh
+./bin/ants 16 500 3 10
+```
+
+## Limpiar archivos generados
+
+```sh
+make clean
+```

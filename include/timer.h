@@ -1,15 +1,21 @@
 #ifndef TIMER_H
 #define TIMER_H
 
-#include <time.h>
+#include <sys/time.h>
 
-typedef struct timer {
-    struct timespec start;
-    struct timespec end;
-} timer_t;
+// Guarda el inicio y final de una medicion de tiempo.
+typedef struct sim_timer {
+    struct timeval start;
+    struct timeval end;
+} sim_timer_t;
 
-void timer_start(timer_t *timer);
-void timer_stop(timer_t *timer);
-double timer_elapsed_seconds(const timer_t *timer);
+// Marca el tiempo inicial.
+void timer_start(sim_timer_t *timer);
+
+// Marca el tiempo final.
+void timer_stop(sim_timer_t *timer);
+
+// Devuelve el tiempo transcurrido en segundos.
+double timer_elapsed_seconds(const sim_timer_t *timer);
 
 #endif

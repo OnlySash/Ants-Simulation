@@ -4,16 +4,17 @@
 #include <stdlib.h>
 #include <time.h>
 
+// Crea un arbol aleatorio donde las hormigas van a buscar comida.
 tree_t *tree_create_random(int node_count, int max_children, int food_per_leaf) {
-    tree_t *tree = calloc(1, sizeof(*tree));
+    tree_t *tree = calloc(1, sizeof(tree_t));
     if (tree == NULL) {
-        fprintf(stderr, "Error: unable to allocate tree\n");
+        fprintf(stderr, "Error: no se pudo reservar memoria para el arbol\n");
         return NULL;
     }
 
-    tree->nodes = calloc((size_t)node_count, sizeof(*tree->nodes));
+    tree->nodes = calloc((size_t)node_count, sizeof(node_t *));
     if (tree->nodes == NULL) {
-        fprintf(stderr, "Error: unable to allocate tree node list\n");
+        fprintf(stderr, "Error: no se pudo reservar memoria para la lista de nodos\n");
         free(tree);
         return NULL;
     }
@@ -29,9 +30,9 @@ tree_t *tree_create_random(int node_count, int max_children, int food_per_leaf) 
     }
     tree->nodes[0] = tree->root;
 
-    int *available = calloc((size_t)node_count, sizeof(*available));
+    int *available = calloc((size_t)node_count, sizeof(int));
     if (available == NULL) {
-        fprintf(stderr, "Error: unable to allocate parent candidate list\n");
+        fprintf(stderr, "Error: no se pudo reservar memoria para padres disponibles\n");
         tree_destroy(tree);
         return NULL;
     }
@@ -48,13 +49,17 @@ tree_t *tree_create_random(int node_count, int max_children, int food_per_leaf) 
             return NULL;
         }
 
-        int window = available_count < max_children ? available_count : max_children;
-        int candidate_index = (int)(rand_r(&seed) % (unsigned int)window);
+        int window = available_count;
+        if (window > max_children) {
+            window = max_children;
+        }
+
+        int candidate_index = rand_r(&seed) % window;
         int parent_index = available[candidate_index];
         node_t *parent = tree->nodes[parent_index];
 
-        if (!node_add_child(parent, new_node)) {
-            fprintf(stderr, "Error: unable to attach node %d to parent %d\n", i, parent_index);
+        if (node_add_child(parent, new_node) == 0) {
+            fprintf(stderr, "Error: no se pudo agregar el nodo %d al padre %d\n", i, parent_index);
             node_destroy(new_node);
             free(available);
             tree_destroy(tree);
@@ -80,6 +85,7 @@ tree_t *tree_create_random(int node_count, int max_children, int food_per_leaf) 
     return tree;
 }
 
+// Pone comida solo en las hojas del arbol.
 void tree_assign_food_to_leaves(tree_t *tree, int food_per_leaf) {
     if (tree == NULL) {
         return;
@@ -100,20 +106,28 @@ void tree_assign_food_to_leaves(tree_t *tree, int food_per_leaf) {
     }
 }
 
+// Camina desde la raiz hasta una hoja aleatoria.
 node_t *tree_walk_random_leaf(tree_t *tree, unsigned int *seed) {
-    if (tree == NULL || tree->root == NULL || seed == NULL) {
+    if (tree == NULL) {
+        return NULL;
+    }
+    if (tree->root == NULL) {
+        return NULL;
+    }
+    if (seed == NULL) {
         return NULL;
     }
 
     node_t *current = tree->root;
     while (current->child_count > 0) {
-        int index = (int)(rand_r(seed) % (unsigned int)current->child_count);
+        int index = rand_r(seed) % current->child_count;
         current = current->children[index];
     }
 
     return current;
 }
 
+// Libera todos los nodos y el arbol.
 void tree_destroy(tree_t *tree) {
     if (tree == NULL) {
         return;
@@ -129,13 +143,14 @@ void tree_destroy(tree_t *tree) {
     free(tree);
 }
 
+// Imprime datos generales del arbol.
 void tree_print_summary(const tree_t *tree) {
     if (tree == NULL) {
         return;
     }
 
-    printf("Node count: %d\n", tree->node_count);
-    printf("Max children per node: %d\n", tree->max_children);
-    printf("Leaf count: %d\n", tree->leaf_count);
-    printf("Food per leaf: %d\n", tree->food_per_leaf);
+    printf("Cantidad de nodos: %d\n", tree->node_count);
+    printf("Maximo de hijos por nodo: %d\n", tree->max_children);
+    printf("Cantidad de hojas: %d\n", tree->leaf_count);
+    printf("Comida por hoja: %d\n", tree->food_per_leaf);
 }

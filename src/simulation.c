@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+// Suma la comida real que queda en todos los nodos del arbol.
 static int tree_actual_remaining_food(const tree_t *tree, int *has_negative_food) {
     int total = 0;
     *has_negative_food = 0;
@@ -19,21 +20,26 @@ static int tree_actual_remaining_food(const tree_t *tree, int *has_negative_food
     return total;
 }
 
+// Crea la simulacion, el arbol, las hormigas, los hilos y el mutex global.
 simulation_t *simulation_create(
     int ant_count,
     int node_count,
     int max_children,
-    int food_per_leaf,
-    int use_mutex
+    int food_per_leaf
 ) {
-    simulation_t *simulation = calloc(1, sizeof(*simulation));
+    simulation_t *simulation = calloc(1, sizeof(simulation_t));
     if (simulation == NULL) {
-        fprintf(stderr, "Error: unable to allocate simulation\n");
+        fprintf(stderr, "Error: no se pudo reservar memoria para la simulacion\n");
         return NULL;
     }
 
     simulation->ant_count = ant_count;
-    simulation->use_mutex = use_mutex;
+
+    if (pthread_mutex_init(&simulation->total_food_mutex, NULL) != 0) {
+        fprintf(stderr, "Error: no se pudo iniciar el mutex de comida total\n");
+        free(simulation);
+        return NULL;
+    }
 
     simulation->tree = tree_create_random(node_count, max_children, food_per_leaf);
     if (simulation->tree == NULL) {
@@ -42,23 +48,16 @@ simulation_t *simulation_create(
     }
     simulation->total_food = simulation->tree->initial_food;
 
-    if (pthread_mutex_init(&simulation->total_food_mutex, NULL) != 0) {
-        fprintf(stderr, "Error: unable to initialize total food mutex\n");
-        simulation_destroy(simulation);
-        return NULL;
-    }
-    simulation->total_food_mutex_initialized = 1;
-
-    simulation->ants = calloc((size_t)ant_count, sizeof(*simulation->ants));
+    simulation->ants = calloc((size_t)ant_count, sizeof(ant_t));
     if (simulation->ants == NULL) {
-        fprintf(stderr, "Error: unable to allocate ants\n");
+        fprintf(stderr, "Error: no se pudo reservar memoria para las hormigas\n");
         simulation_destroy(simulation);
         return NULL;
     }
 
-    simulation->threads = calloc((size_t)ant_count, sizeof(*simulation->threads));
+    simulation->threads = calloc((size_t)ant_count, sizeof(pthread_t));
     if (simulation->threads == NULL) {
-        fprintf(stderr, "Error: unable to allocate thread handles\n");
+        fprintf(stderr, "Error: no se pudo reservar memoria para los hilos\n");
         simulation_destroy(simulation);
         return NULL;
     }
@@ -67,13 +66,14 @@ simulation_t *simulation_create(
     for (int i = 0; i < ant_count; ++i) {
         simulation->ants[i].id = i;
         simulation->ants[i].collected_food = 0;
-        simulation->ants[i].seed = base_seed ^ ((unsigned int)i * 2654435761u);
+        simulation->ants[i].seed = base_seed + (unsigned int)i;
         simulation->ants[i].simulation = simulation;
     }
 
     return simulation;
 }
 
+// Crea un hilo por hormiga y espera a que todos terminen.
 int simulation_run(simulation_t *simulation) {
     if (simulation == NULL) {
         return 0;
@@ -82,10 +82,10 @@ int simulation_run(simulation_t *simulation) {
     int created = 0;
     for (int i = 0; i < simulation->ant_count; ++i) {
         if (pthread_create(&simulation->threads[i], NULL, ant_run, &simulation->ants[i]) != 0) {
-            fprintf(stderr, "Error: unable to create ant thread %d\n", i);
+            fprintf(stderr, "Error: no se pudo crear el hilo de la hormiga %d\n", i);
             for (int j = 0; j < created; ++j) {
                 if (pthread_join(simulation->threads[j], NULL) != 0) {
-                    fprintf(stderr, "Error: unable to join ant thread %d after create failure\n", j);
+                    fprintf(stderr, "Error: no se pudo esperar el hilo %d despues del fallo\n", j);
                 }
             }
             return 0;
@@ -93,64 +93,60 @@ int simulation_run(simulation_t *simulation) {
         created++;
     }
 
-    int ok = 1;
     for (int i = 0; i < created; ++i) {
         if (pthread_join(simulation->threads[i], NULL) != 0) {
-            fprintf(stderr, "Error: unable to join ant thread %d\n", i);
-            ok = 0;
+            fprintf(stderr, "Error: no se pudo esperar el hilo de la hormiga %d\n", i);
+            return 0;
         }
     }
 
-    return ok;
+    return 1;
 }
 
+// Lee la comida total usando mutex porque varios hilos la usan.
 int simulation_get_total_food(simulation_t *simulation) {
     if (simulation == NULL) {
         return 0;
     }
 
-    if (!simulation->use_mutex) {
-        return simulation->total_food;
-    }
-
     if (pthread_mutex_lock(&simulation->total_food_mutex) != 0) {
-        fprintf(stderr, "Error: unable to lock total food mutex\n");
+        fprintf(stderr, "Error: no se pudo bloquear el mutex de comida total\n");
         return 0;
     }
 
     int total = simulation->total_food;
 
     if (pthread_mutex_unlock(&simulation->total_food_mutex) != 0) {
-        fprintf(stderr, "Error: unable to unlock total food mutex\n");
+        fprintf(stderr, "Error: no se pudo desbloquear el mutex de comida total\n");
     }
 
     return total;
 }
 
+// Resta una unidad de comida total usando mutex.
 void simulation_decrease_total_food(simulation_t *simulation) {
     if (simulation == NULL) {
         return;
     }
 
-    if (!simulation->use_mutex) {
-        simulation->total_food--;
-        return;
-    }
-
     if (pthread_mutex_lock(&simulation->total_food_mutex) != 0) {
-        fprintf(stderr, "Error: unable to lock total food mutex\n");
+        fprintf(stderr, "Error: no se pudo bloquear el mutex de comida total\n");
         return;
     }
 
     simulation->total_food--;
 
     if (pthread_mutex_unlock(&simulation->total_food_mutex) != 0) {
-        fprintf(stderr, "Error: unable to unlock total food mutex\n");
+        fprintf(stderr, "Error: no se pudo desbloquear el mutex de comida total\n");
     }
 }
 
+// Suma la comida recolectada por todas las hormigas.
 int simulation_get_collected_food(const simulation_t *simulation) {
-    if (simulation == NULL || simulation->ants == NULL) {
+    if (simulation == NULL) {
+        return 0;
+    }
+    if (simulation->ants == NULL) {
         return 0;
     }
 
@@ -162,41 +158,56 @@ int simulation_get_collected_food(const simulation_t *simulation) {
     return total;
 }
 
+// Imprime el resumen final de la simulacion.
 void simulation_print_results(const simulation_t *simulation, double elapsed_seconds) {
-    if (simulation == NULL || simulation->tree == NULL) {
+    if (simulation == NULL) {
+        return;
+    }
+    if (simulation->tree == NULL) {
         return;
     }
 
     int collected = simulation_get_collected_food(simulation);
     int remaining = simulation->total_food;
-    int expected = collected + remaining;
     int has_negative_food = 0;
     int actual_remaining = tree_actual_remaining_food(simulation->tree, &has_negative_food);
-    int consistent = simulation->tree->initial_food == expected &&
-                     remaining == actual_remaining &&
-                     !has_negative_food;
+    int consistent = 1;
 
-    printf("=== Ant Foraging Simulation ===\n");
-    printf("Mode: %s\n\n", simulation->use_mutex ? "mutex" : "nomutex");
+    if (simulation->tree->initial_food != collected + remaining) {
+        consistent = 0;
+    }
+    if (remaining != actual_remaining) {
+        consistent = 0;
+    }
+    if (has_negative_food) {
+        consistent = 0;
+    }
 
-    printf("Ant count: %d\n", simulation->ant_count);
+    printf("=== Simulacion de hormigas ===\n\n");
+
+    printf("Cantidad de hormigas: %d\n", simulation->ant_count);
     tree_print_summary(simulation->tree);
     printf("\n");
 
-    printf("Initial food: %d\n", simulation->tree->initial_food);
-    printf("Collected food: %d\n", collected);
-    printf("Remaining food: %d\n\n", remaining);
+    printf("Comida inicial: %d\n", simulation->tree->initial_food);
+    printf("Comida recolectada: %d\n", collected);
+    printf("Comida restante: %d\n\n", remaining);
 
-    printf("Execution time: %.6f seconds\n\n", elapsed_seconds);
+    printf("Tiempo de ejecucion: %.6f segundos\n\n", elapsed_seconds);
 
-    printf("Per-ant collection:\n");
+    printf("Recoleccion por hormiga:\n");
     for (int i = 0; i < simulation->ant_count; ++i) {
-        printf("Ant %d: %d\n", simulation->ants[i].id, simulation->ants[i].collected_food);
+        printf("Hormiga %d: %d\n", simulation->ants[i].id, simulation->ants[i].collected_food);
     }
 
-    printf("\nConsistency check: %s\n", consistent ? "OK" : "FAILED");
+    if (consistent) {
+        printf("\nRevision de consistencia: OK\n");
+    } else {
+        printf("\nRevision de consistencia: FALLO\n");
+    }
 }
 
+// Libera toda la memoria y destruye el mutex global.
 void simulation_destroy(simulation_t *simulation) {
     if (simulation == NULL) {
         return;
@@ -206,9 +217,8 @@ void simulation_destroy(simulation_t *simulation) {
         tree_destroy(simulation->tree);
     }
 
-    if (simulation->total_food_mutex_initialized &&
-        pthread_mutex_destroy(&simulation->total_food_mutex) != 0) {
-        fprintf(stderr, "Warning: unable to destroy total food mutex\n");
+    if (pthread_mutex_destroy(&simulation->total_food_mutex) != 0) {
+        fprintf(stderr, "Advertencia: no se pudo destruir el mutex de comida total\n");
     }
 
     free(simulation->ants);
